@@ -23,26 +23,28 @@ class Phone(Field):
 
 
 class Record:
-    def __init__(self, name: str) -> None:
-        self.name = Name(name)
+    def __init__(self, name: Name, phone: Phone|None=None) -> None:
+        self.name = name
         self.phones = []
+        if phone:
+            self.add_phone(phone)
 
-    def __find_phone(self, phone: str) -> int|None:
+    def __find_phone(self, phone: Phone) -> int|None:
         for i, item in  enumerate(self.phones):
-            if item.value == phone:
+            if item.value == phone.value:
                 return i
             
-    def add_phone(self, phone: str) -> None:
+    def add_phone(self, phone: Phone) -> None:
         if phone:
-            self.phones.append(Phone(phone))
+            self.phones.append(phone)
 
-    def del_phone(self, phone: str) -> None:
+    def del_phone(self, phone: Phone) -> None:
         if (index := self.__find_phone(phone)) != None:
             self.phones.remove(self.phones[index])
 
-    def edit_phone(self, current_value: str, new_value: str) -> None:
+    def edit_phone(self, current_value: Phone, new_value: Phone) -> None:
         if (index := self.__find_phone(current_value)) != None:
-            self.phones[index].value = new_value
+            self.phones[index].value = new_value.value
 
 
 class AddressBook(UserDict):
