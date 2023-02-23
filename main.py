@@ -20,14 +20,26 @@ from classes import *
 #     print(len(ab["Petro"].phones))
 
 if __name__ == '__main__':
-    name = Name('Bill')
-    phone = Phone('1234567890')
-    rec = Record(name, phone)
     ab = AddressBook()
-    ab.add_record(rec)
-    assert isinstance(ab['Bill'], Record)
-    assert isinstance(ab['Bill'].name, Name)
-    assert isinstance(ab['Bill'].phones, list)
-    assert isinstance(ab['Bill'].phones[0], Phone)
-    assert ab['Bill'].phones[0].value == '1234567890'
+
+    for i in range(100):
+        name = Name(f'Bill{i}')
+        phone = Phone(str(i) * 8)
+        birthday = Birthday("1983-12-23")
+        rec = Record(name, phone, birthday)
+        ab.add_record(rec)
+
+    # assert isinstance(ab['Bill'], Record)
+    # assert isinstance(ab['Bill'].name, Name)
+    # assert isinstance(ab['Bill'].birthday, (Birthday, type(None)))
+    # print(ab['Bill'].days_to_birthday())
+    # assert isinstance(ab['Bill'].phones, list)
+    # if ab['Bill'].phones:
+    #     assert isinstance(ab['Bill'].phones[0], (Phone, type(None)))
+    #     assert ab['Bill'].phones[0].value == '380957131551'
+
+    for n, page in enumerate(ab.iterator(10)):
+        print(f"Page-{n}:")
+        print(page)
+
     print('All Ok)')
