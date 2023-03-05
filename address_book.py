@@ -1,6 +1,8 @@
 from collections import UserDict
 from datetime import date
+from pickle import dump, load
 import re
+import os
 
 
 class Field:
@@ -95,13 +97,32 @@ class Birthday(Field):
 
 
 class Record:
-    def __init__(self, name: Name, phone: Phone | None = None, birthday: Birthday | None = None) -> None:
+    def __init__(self, name: Name, phone: Phone|None = None, 
+                 birthday: Birthday|None = None) -> None:
         self.name = name
         self.phones = []
         self.birthday = birthday
 
-        if phone:
+        if phone and phone.value:
             self.add_phone(phone)
+
+    def __str__(self) -> str:
+        result = f"{self.name.value} =>\n"
+
+        if self.birthday and self.birthday.value is not None:
+            result += f"\tbirthday: {self.birthday.value}"
+            result += f" ({self.days_to_birthday()} days left)\n"
+
+        if self.phones:
+            result += "\tphones: "
+            result += f"{', '.join([p.value for p in self.phones])}\n"
+
+        return result
+    
+    def __find_phone(self, phone: Phone) -> int | None:
+        for i, item in enumerate(self.phones):
+            if item.value == phone.value:
+                return i
 
     def days_to_birthday(self) -> int | None:
         if self.birthday and self.birthday.value is not None:
@@ -113,7 +134,10 @@ class Record:
                 self.birthday.value.day
             )
 
-            next_bd_year = current_date.year if current_year_bd >= current_date else current_date.year + 1
+            if current_year_bd >= current_date:
+                next_bd_year = current_date.year 
+            else:
+                next_bd_year = current_date.year + 1
 
             next_birthday = date(
                 next_bd_year,
@@ -123,36 +147,70 @@ class Record:
 
             return (next_birthday - current_date).days
 
-    def __find_phone(self, phone: Phone) -> int | None:
-        for i, item in enumerate(self.phones):
-            if item.value == phone.value:
-                return i
-
-    def add_phone(self, phone: Phone) -> None:
-        if phone:
+    def add_phone(self, phone: Phone) -> bool:
+        if phone and phone.value:
             self.phones.append(phone)
+            return True
+        return False
 
-    def del_phone(self, phone: Phone) -> None:
+    def del_phone(self, phone: Phone) -> bool:
         if (index := self.__find_phone(phone)) != None:
             self.phones.remove(self.phones[index])
+            return True
+        return False
 
-    def edit_phone(self, current_value: Phone, new_value: Phone) -> None:
+    def edit_phone(self, current_value: Phone, new_value: Phone) -> bool:
         if (index := self.__find_phone(current_value)) != None:
             self.phones[index].value = new_value.value
+            return True
+        return False
 
 
 class AddressBook(UserDict):
+    def __init__(self, init_dict=None, db_file_path=None):
+        self.__address_db_file = db_file_path or "address_book.dat"
+
+        if init_dict is not None:
+            self.__with_init_dict = True
+
+        super().__init__(init_dict)
+
     def __record_exists(self, record_key):
         return bool(self.data.get(record_key, None))
 
+    def __str__(self) -> str:
+        return '\n'.join([f"{self.data[name]}" for name in self.data])
+    
+    def __setitem__(self, key, item) -> None:
+        if not self.__with_init_dict:
+            print("Use method add_record()!")
+            self.__with_init_dict = False
+        else:
+            return super().__setitem__(key, item)
+    
     def add_record(self, record: Record):
         if record and type(record) == Record:
             if self.__record_exists(record.name.value):
-                print("The record exists!")
+                return False
             else:
                 self.data[record.name.value] = record
+                return True
         else:
             print("Bad record type, should be Record()")
+            return False
+   
+    def search(self, pattern: str):
+        found = AddressBook()
+        for name, record in self.data.items():
+            if re.match(f".*{pattern}.*", name):
+                if isinstance(record, Record):
+                    found.add_record(record)
+            else:
+                for phone in record.phones:
+                    if re.match(f".*{pattern}.*", phone.value, re.IGNORECASE):
+                        if isinstance(record, Record):
+                            found.add_record(record)
+        return found if len(found.data) else None
 
     def iterator(self, records_number=1):
         if records_number <= 0:
@@ -164,5 +222,29 @@ class AddressBook(UserDict):
 
         ci = 0
         for _ in range(len(self.data)//records_number):
-            yield dict(list(self.data.items())[ci:ci + records_number])
+            yield AddressBook(list(self.data.items())[ci:ci + records_number])
             ci += records_number
+
+    def serialize(self) -> bool:
+        with open(self.__address_db_file, 'wb') as db_file_fh:
+            if db_file_fh.writable():
+                dump(self.data, db_file_fh)
+            else:
+                print(f"Cannot write to {self.__address_db_file} file!",
+                      "Serialization is impossible!")
+                return False
+        return True
+    
+    def deserialize(self) -> bool:
+        if not os.path.isfile(self.__address_db_file):
+            print("Database file was not found!")
+            return False
+        
+        with open(self.__address_db_file, 'rb') as db_file_fh:
+            if db_file_fh.readable():
+                self.data = load(db_file_fh)
+            else:
+                print(f"Cannot read from {self.__address_db_file} file!",
+                      "Deserialization is impossible!")
+                return False
+        return True
